@@ -1,0 +1,105 @@
+---
+title: "Trabajando con la EPH"
+author: "Juan Videla y Juan Pablo Costa"
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#En este informe trabajaremos con las bases de la EPH-INDEC, utilizando el paquete 'eph'
+
+Llamamos a las librerías necesarias
+```{r librerias}
+library(dplyr)
+library(eph)
+library(tidyr)
+library(tidyverse)
+
+```
+
+Obtenemos la base de hogar del 1° trimestre 2019.
+Vemos que es una base que tiene 88 variables de 19.338 observaciones
+
+
+```{r base individual}
+base_hogar_2019_01 <- get_microdata(year = 2019,
+                                 trimester = 1,
+                                 type = "hogar",
+                                 vars = "all",
+                                 destfile = "datos/base_hogar_2019_01")
+
+```
+
+Luego la bases individual del 1° trimestre 2019
+Vemos que es una base que tiene 177 variables de 59.258 observaciones
+
+```{r base hogar}
+base_individual_2019_01 <- get_microdata(year = 2019,
+                                 trimester = 1,
+                                 type = "individual",
+                                 vars = "all",
+                                 destfile = "datos/base_individual_2019_02")
+
+```
+
+Ambas bases tienen variables numéricas codificadas (en su gran mayoría integer), y una variable especial CODUSU.
+Tienen datos faltantes donde no corresponde la respuesta, por ejemplo en saltos de preguntas.
+```{r}
+summary(base_individual_2019_01)
+summary(base_hogar_2019_01)
+```
+
+
+Primero calculamos la proporción de varones y mujeres
+```{r proporcion sexo}
+base_individual_2019_01 %>% 
+  summarise(mean(CH04))
+```
+
+
+Consultamos las edades mínimas y máximas, siendo la máxima de 102 años y la mínima de -1 (posiblemente algún problema de carga)
+```{r edades minimas y maximas}
+base_individual_2019_01 %>% 
+  summarise(max(CH06, na.rm = FALSE), min(CH06, na.rm = FALSE))
+```
+
+
+Vamos a estimar ingresos medios y medianos de trabajadores en relación de dependencia.
+
+```{r ingresos obreros}
+ingresos_obreros <- base_individual_2019_01 %>% 
+  filter(CAT_OCUP == 3 & ESTADO == 1) %>% 
+  summarise(mean(P47T), median(P47T))
+```
+
+Ahora estimamos ingresos medios y medianos de patrones
+```{r ingresos patrones}
+ingresos_patrones <- base_individual_2019_01 %>% 
+  filter(CAT_OCUP == 1 & ESTADO == 1) %>% 
+  summarise(mean(P47T), median(P47T))
+```
+
+Vemos que los ingresos medios y medianos de patrones son considerablemente superiores a los de obreros/as.
+
+Vamos a estimar brecha de género en ingresos en trabajadores en relación de dependencia.
+```{r brecha de ingresos}
+brecha_ingresos <- base_individual_2019_01 %>%
+  filter(CAT_OCUP == 3 & ESTADO == 1) %>% 
+  group_by(CH04) %>%
+  summarise(mean(P47T), median(P47T))
+  
+```
+Vemos que la brecha oscila entre el 1,19 en la media de ingresos y 1,25 en la mediana.
+
+
+Aquí tratamos de graficar edad e ingresos, y que los puntos sean de color diferente de acuerdo al aglomerado. La distribución parece indicar mayor proporción de ingresos altos en CABA respecto a GBA. También pareciera indicar una población relativamente más envejecida en CABA respecto a GBA.
+```{r}
+base_individual_2019_01 %>% 
+  filter(AGLOMERADO == 32 | AGLOMERADO == 33) %>% 
+  ggplot(aes(CH06, P47T))+
+  geom_point(aes(color = factor(AGLOMERADO)))
+
+```
