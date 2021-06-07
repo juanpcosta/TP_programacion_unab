@@ -33,6 +33,7 @@ base_hogar_2019_01 <- get_microdata(year = 2019,
 
 ```
 
+
 Luego la bases individual del 1° trimestre 2019
 Vemos que es una base que tiene 177 variables de 59.258 observaciones
 
@@ -41,9 +42,27 @@ base_individual_2019_01 <- get_microdata(year = 2019,
                                  trimester = 1,
                                  type = "individual",
                                  vars = "all",
-                                 destfile = "datos/base_individual_2019_02")
+                                 destfile = "datos/base_individual_2019_01")
 
 ```
+
+
+```{r}
+bases <- eph::get_microdata(year = 2010:2020,
+                            trimester = 1:4,
+                            type = "individual",
+                            vars = "all")
+
+bases %>% 
+  unnest(cols = c(microdata))
+```
+
+
+
+```{r}
+base_hogar_2019_01 <- read.csv("datos/base_hogar_2019_01")
+```
+
 
 Ambas bases tienen variables numéricas codificadas (en su gran mayoría integer), y una variable especial CODUSU.
 Tienen datos faltantes donde no corresponde la respuesta, por ejemplo en saltos de preguntas.
