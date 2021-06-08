@@ -1,17 +1,22 @@
 ---
 title: "Trabajando con la EPH"
 author: "Juan Videla y Juan Pablo Costa"
-editor_options: 
-  chunk_output_type: console
+output: 
+  html_document:
+    code_folding: "hide"
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(
+	echo = TRUE,
+	message = FALSE,
+	warning = FALSE
+)
 ```
+# *PRIMERA PARTE*
 
-#En este informe trabajaremos con las bases de la EPH-INDEC, utilizando el paquete 'eph'
+En este informe trabajaremos con las bases de la EPH-INDEC, utilizando el paquete 'eph'
 
-Llamamos a las librerías necesarias
 ```{r librerias}
 library(dplyr)
 library(eph)
@@ -24,31 +29,40 @@ Obtenemos la base de hogar del 1° trimestre 2019.
 Vemos que es una base que tiene 88 variables de 19.338 observaciones
 
 
-```{r base individual}
-base_hogar_2019_01 <- get_microdata(year = 2019,
-                                 trimester = 1,
-                                 type = "hogar",
-                                 vars = "all",
-                                 destfile = "datos/base_hogar_2019_01")
+```{r base hogar}
+base_hogar_2019_01_02 <- get_microdata(year = 2019,
+                                 trimester = 1:2,
+                                 type = "hogar") %>% 
+  organize_labels(., type = "hogar")
+                                 
 
 ```
 
 
-Luego la bases individual del 1° trimestre 2019
+Luego la base individual del 1° trimestre 2019
 Vemos que es una base que tiene 177 variables de 59.258 observaciones
 
-```{r base hogar}
+```{r base individual}
 base_individual_2019_01 <- get_microdata(year = 2019,
                                  trimester = 1,
-                                 type = "individual",
-                                 vars = "all",
-                                 destfile = "datos/base_individual_2019_01")
+                                 type = "individual") %>%
+  organize_labels(., type = "individual")
+                                
+
+```
+
+```{r}
+base_unificada_2019_01 <- get_microdata(year = 2019,
+                                        trimester = 1,
+                                        type = "individual")
+
 
 ```
 
 
-```{r}
-bases <- eph::get_microdata(year = 2010:2020,
+
+```{r eval=FALSE, include=FALSE}
+bases <- eph::get_microdata(year = 2020,
                             trimester = 1:4,
                             type = "individual",
                             vars = "all")
@@ -57,16 +71,17 @@ bases %>%
   unnest(cols = c(microdata))
 ```
 
-
-
-```{r}
-base_hogar_2019_01 <- read.csv("datos/base_hogar_2019_01")
+```{r eval=FALSE, include=FALSE}
+bases2020 <- eph::get_microdata(year = 2020,
+                            trimester = 1:4,
+                            type = "individual",
+                            vars = "all")
 ```
 
 
 Ambas bases tienen variables numéricas codificadas (en su gran mayoría integer), y una variable especial CODUSU.
 Tienen datos faltantes donde no corresponde la respuesta, por ejemplo en saltos de preguntas.
-```{r}
+```{r eval=FALSE, include=FALSE}
 summary(base_individual_2019_01)
 summary(base_hogar_2019_01)
 ```
@@ -74,8 +89,11 @@ summary(base_hogar_2019_01)
 
 Primero calculamos la proporción de varones y mujeres
 ```{r proporcion sexo}
-base_individual_2019_01 %>% 
-  summarise(mean(CH04))
+proporcion_sexo <- base_individual_2019_01 %>% 
+  summarise("Proporcion de varones" = mean(CH04==1)) 
+
+knitr::kable(proporcion_sexo)
+
 ```
 
 
@@ -89,9 +107,11 @@ base_individual_2019_01 %>%
 Vamos a estimar ingresos medios y medianos de trabajadores en relación de dependencia.
 
 ```{r ingresos obreros}
-ingresos_obreros <- base_individual_2019_01 %>% 
-  filter(CAT_OCUP == 3 & ESTADO == 1) %>% 
-  summarise(mean(P47T), median(P47T))
+ingresos_general <- base_individual_2019_01 %>% 
+  filter(CAT_OCUP == 3 | CAT_OCUP == 1 & ESTADO == 1) %>% 
+  group_by(CAT_OCUP) %>% 
+  summarise("Promedio de ingresos" = mean(P47T), median(P47T))
+knitr::kable(ingresos_general)
 ```
 
 Ahora estimamos ingresos medios y medianos de patrones
@@ -99,6 +119,7 @@ Ahora estimamos ingresos medios y medianos de patrones
 ingresos_patrones <- base_individual_2019_01 %>% 
   filter(CAT_OCUP == 1 & ESTADO == 1) %>% 
   summarise(mean(P47T), median(P47T))
+knitr::kable(ingresos_patrones)
 ```
 
 Vemos que los ingresos medios y medianos de patrones son considerablemente superiores a los de obreros/as.
@@ -113,12 +134,29 @@ brecha_ingresos <- base_individual_2019_01 %>%
 ```
 Vemos que la brecha oscila entre el 1,19 en la media de ingresos y 1,25 en la mediana.
 
+Para observarlo con mayor claridad lo graficamos en función de la edad, viendo como los puntos celestes - mujeres- se ubican en general más hacia el sector de menor ingresos que los rojos - varones-.
+
+```{r}
+base_individual_2019_01 %>% 
+  filter(CAT_OCUP == 3 & ESTADO == 1) %>% 
+   group_by(CH04, CH06) %>% 
+    summarise(promedio_ingreso = mean(P47T)) %>% 
+  ggplot(aes(CH06, promedio_ingreso))+
+  labs(x = "Edad", y = "Ingresos ($)", color = "Género")+
+  geom_point(aes(color = factor(CH04)))
+```
+
+
 
 Aquí tratamos de graficar edad e ingresos, y que los puntos sean de color diferente de acuerdo al aglomerado. La distribución parece indicar mayor proporción de ingresos altos en CABA respecto a GBA. También pareciera indicar una población relativamente más envejecida en CABA respecto a GBA.
+
 ```{r}
 base_individual_2019_01 %>% 
   filter(AGLOMERADO == 32 | AGLOMERADO == 33) %>% 
-  ggplot(aes(CH06, P47T))+
+  group_by(CH06, AGLOMERADO) %>% 
+    summarise(ingreso_promedio = mean(P47T)) %>% 
+  ggplot(aes(CH06, ingreso_promedio))+
+  labs(x = "Edad", y = "Ingresos ($)", color = "Aglomerado")+
   geom_point(aes(color = factor(AGLOMERADO)))
-
 ```
+
